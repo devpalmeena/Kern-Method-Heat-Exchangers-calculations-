@@ -1,0 +1,418 @@
+import math
+
+# --------------------------
+# Core Calculation Functions
+def calculate_LMTD_F(Thot_in, Thot_out, Tcold_in, Tcold_out):
+    """Calculate LMTD and correction factor F for a 1-2 shell & tube exchanger."""
+    
+    # Step 1: Calculate temperature differences
+    ΔT1 = Thot_in - Tcold_out
+    ΔT2 = Thot_out - Tcold_in
+
+    # Step 2: Compute LMTD
+    if ΔT1 != ΔT2:
+        LMTD = (ΔT1 - ΔT2) / math.log(ΔT1 / ΔT2)
+    else:
+        LMTD = ΔT1  # If temperatures are equal, no need for log calculation
+
+    # Step 3: Calculate P and R
+    P = (Tcold_out - Tcold_in) / (Thot_in - Tcold_in)
+    R = (Thot_in - Thot_out) / (Tcold_out - Tcold_in)
+
+    # Step 4: Compute F factor
+    if R == 1:
+        F = 1.0  # Special case when R = 1
+    else:
+        try:
+            sqrt_term = math.sqrt(R**2 + 1)
+            numerator = (1 - P) / (1 - P * R)
+            denom_part1 = 2 - P * (R + 1 - sqrt_term)
+            denom_part2 = 2 - P * (R + 1 + sqrt_term)
+            F = (sqrt_term / (R - 1)) * (math.log(numerator) / math.log(denom_part1 / denom_part2))
+        except:
+            F = 0.85  # Fallback value if calculation fails
+
+    # Step 5: Print results
+    print(f"\n🔹 LMTD = {LMTD:.4f} K")
+    print(f"🔹 Correction Factor (F) = {F:.4f}")
+    print(f"🔹 P = {P:.4f}")
+    print(f"🔹 R = {R:.4f}")
+
+    return LMTD, F, P, R
+
+def calculate_equivalent_diameter(do, pitch_type):
+    """
+    Calculate the equivalent diameter for square or triangular pitch.
+    
+    Parameters:
+    - do: Outer diameter of the tube
+    - pitch_type: 'square' or 'triangular'
+    
+    Returns:
+    - de: Equivalent diameter
+    """
+    pt = 1.25 * do  # Tube pitch is 1.25 times the outer diameter
+    
+    if pitch_type == 'square':
+        de = (1.27 / do) * (pt**2 - 0.785 * do**2)
+    elif pitch_type == 'triangular':
+        de = (1.10 / do) * (pt**2 - 0.917 * do**2)
+    else:
+        raise ValueError("Invalid pitch type. Use 'square' or 'triangular'.")
+    print(f"de is{de}")    
+    return de
+
+def calculate_bundle_diameter(do, Nt):
+    """
+    Calculate the bundle diameter.
+    
+    Parameters:
+    - do: Outer diameter of the tube
+    - Nt: Number of tubes
+    
+    Returns:
+    - Db: Bundle diameter
+    """
+    Db = do * (Nt/0.249)**(1/2.207)
+    print(f"Db is{Db}")
+    
+    return Db
+
+def calculate_shell_diameter(Db):
+    """
+    Calculate the shell diameter with a clearance of 100 mm.
+    
+    Parameters:
+    - Db: Bundle diameter
+    
+    Returns:
+    - Ds: Shell diameter
+    """
+    Ds = Db + 0.01  # 10mm clearance
+    print(f"Ds is{Ds}")
+    return Ds
+
+def calculate_minimum_baffle_spacing(Ds):
+    """
+    Calculate the minimum baffle spacing.
+    
+    Parameters:
+    - Ds: Shell diameter
+    
+    Returns:
+    - b_min: Minimum baffle spacing
+    """
+    b_min = 0.5 * Ds
+    print(f"b_min is{b_min}")
+    return b_min
+
+def calculate_number_of_chambers(L, b_min):
+    """
+    Calculate the number of chambers.
+    
+    Parameters:
+    - L: Tube length
+    - b_min: Minimum baffle spacing
+    
+    Returns:
+    - N_c: Number of chambers
+    """
+    N_c = L / b_min
+    print(f"N_c is{N_c}")
+    return N_c
+
+def calculate_actual_baffle_spacing(L, N_c):
+    """
+    Calculate the actual baffle spacing.
+    
+    Parameters:
+    - L: Tube length
+    - N_c: Number of chambers
+    
+    Returns:
+    - b: Actual baffle spacing
+    """
+    b = L / N_c
+    print(f"b is {b}")
+    return b
+
+def calculate_shell_cross_sectional_area(pt, do, Ds, b):
+    """
+    Calculate the shell cross-sectional area.
+    
+    Parameters:
+    - pt: Tube pitch
+    - do: Outer diameter of the tube
+    - Ds: Shell diameter
+    - b: Baffle spacing
+    
+    Returns:
+    - As: Shell cross-sectional area
+    """
+    As = ((pt - do) * Ds * b) / pt
+    print(f"As is{As}")
+    return As
+
+def calculate_shell_side_mass_velocity(mass_flow, As):
+    """
+    Calculate the shell-side mass velocity.
+    
+    Parameters:
+    - mass_flow: Shell-side mass flowrate
+    - As: Shell cross-sectional area
+    
+    Returns:
+    - Gs: Shell-side mass velocity
+    """
+    Gs = mass_flow / As
+    print(f"Gs is{Gs}")
+    return Gs
+
+def calculate_reynolds_number(Gs, de, mu):
+    """
+    Calculate the Reynolds number.
+    
+    Parameters:
+    - Gs: Shell-side mass velocity
+    - de: Equivalent diameter
+    - mu: Dynamic viscosity of the fluid
+    
+    Returns:
+    - Re: Reynolds number
+    """
+    Re = Gs * de / mu
+    print(f"Re shell side  is{Re}")
+    return Re
+
+def calculate_nusselt_number(C, n, Re, Pr):
+    """
+    Calculate the Nusselt number using the Grimson correlation.
+    
+    Parameters:
+    - C: Constant from empirical data
+    - n: Exponent from empirical data
+    - Re: Reynolds number
+    - Pr: Prandtl number
+    
+    Returns:
+    - Nu: Nusselt number
+    """
+    # Nu = 1.13 * C * Re**n * Pr**0.33
+    Nu = 0.0013 * Re**1 * Pr**0.33
+    print(f"Nu shell side  is{Nu}")
+    return Nu
+
+def calculate_shell_side_heat_transfer_coefficient(Nu, k, de):
+    """
+    Calculate the shell-side heat transfer coefficient.
+    
+    Parameters:
+    - Nu: Nusselt number
+    - k: Thermal conductivity of the fluid
+    - de: Equivalent diameter
+    
+    Returns:
+    - ho: Shell-side heat transfer coefficient
+    """
+    ho = Nu * k / de
+    print(f"ho shell side  is{ho}")
+    return ho
+
+def calculate_h(mass_flow, viscosity, diam, density, k, cp, is_shell_side=False, pitch_type=None, Ds=None, L=None):
+    """Calculate heat transfer coefficient with proper unit conversions"""
+    # Unit conversions
+    mass_flow = mass_flow / 3600  # kg/h → kg/s
+    viscosity *= 1e-3  # cP → Pa·s
+    
+    if is_shell_side:
+        # Calculate equivalent diameter for shell-side
+        de = calculate_equivalent_diameter(diam, pitch_type)
+        
+        # Calculate baffle spacing
+        b_min = calculate_minimum_baffle_spacing(Ds)
+        N_c = calculate_number_of_chambers(L, b_min)
+        b = calculate_actual_baffle_spacing(L, N_c)
+        
+        # Calculate shell cross-sectional area
+        pt = 1.25 * diam
+        print(f"pt is{pt}")
+        As = calculate_shell_cross_sectional_area(pt, diam, Ds, b)
+        
+        # Calculate shell-side mass velocity
+        Gs = calculate_shell_side_mass_velocity(mass_flow, As)
+        
+        # Dimensionless numbers
+        Re = calculate_reynolds_number(Gs, de, viscosity)
+        
+        Pr = (cp * 1000 * viscosity) / k  # kJ→J
+        print(f"pr shell side  is{Pr}")
+        
+        # Calculate Nusselt number and heat transfer coefficient
+        C = 0.35  # Constant from empirical data
+        n = 0.55  # Exponent from empirical data
+        Nu = calculate_nusselt_number(C, n, Re, Pr)
+        ho = calculate_shell_side_heat_transfer_coefficient(Nu, k, de)
+        
+        return ho, Re, Pr, Nu
+    
+    else:
+        # Tube-side calculation
+        area = math.pi * diam**2 / 4
+        # area1 = area*Nt
+        velocity = mass_flow / (density * area)
+        
+        # Dimensionless numbers
+        Re = (density * velocity * diam) / viscosity
+        print(f"Re tube side side  is{Re}")
+        Pr = (cp * 1000 * viscosity) / k  # kJ→J
+        print(f"pr tube side side  is{Pr}")
+        
+        if Re > 4000:  # Turbulent flow
+            Nu = 0.023 * Re**0.8 * Pr**0.4 *( 1 +(25/610))**0.7
+            
+            # Nu = 0.0023 * Re**0.8 * Pr**0.4
+       
+            
+        else:
+            raise ValueError("Laminar flow - needs different correlation")
+        print(f"Nu tube side  side  is{Nu}")    
+        
+        return (Nu * k) / diam, Re, Pr, Nu
+
+def calculate_U(h_o, h_i, d_o, d_i, k_w, h_od=5000, h_id=5000):
+    """Calculate overall heat transfer coefficient"""
+    print("h_i")
+    print(h_i)
+    print("h_o")
+    print(h_o)
+    R_total = (1/h_o + 1/h_od + 
+              (d_o * math.log(d_o/d_i))/(2*k_w) +
+              (d_o/d_i)*(1/h_id + 1/h_i))
+    print(f"Rtotal  is{R_total}")
+    return 1 / R_total
+    
+    print("h_i")
+    print(h_i)
+    print("h_o")
+    print(h_o)
+
+# --------------------
+# Iterative Solver
+# --------------------
+def heat_exchanger_design(Thot_in, Thot_out, Tcold_in, Tcold_out,
+                          Q, tube_params, shell_params, 
+                          U_guess=300, max_iter=20, tol=1):
+    """
+    Main design function with iterative U calculation
+    Returns: Final U value, area, tube count, shell diameter
+    """
+    # Initial setup
+    LMTD, F, P, R = calculate_LMTD_F(Thot_in, Thot_out, Tcold_in, Tcold_out)
+    U_ass = U_guess
+    tube_dia = tube_params['di']
+    
+    for iteration in range(max_iter):
+        # 1. Calculate required area
+        A = Q / (U_ass * F * LMTD)
+        
+        # 2. Determine tube count
+        N_tubes = A / (math.pi * tube_params['do'] * tube_params['L'])
+        N_tubes = math.ceil(N_tubes)
+        
+        # 3. Estimate shell diameter (simplified)
+        bundle_dia = calculate_bundle_diameter(tube_params['do'], N_tubes)
+        shell_dia = calculate_shell_diameter(bundle_dia)
+        
+        # 4. Calculate HTCs
+        try:
+            # Shell-side calculation
+            h_o, *_ = calculate_h(shell_params['mass_flow'],
+                                 shell_params['viscosity'],
+                                 tube_params['do'],
+                                 shell_params['density'],
+                                 shell_params['k'],
+                                 shell_params['cp'],
+                                 is_shell_side=True,
+                                 pitch_type='triangular',
+                                 Ds=shell_dia,
+                                 L=tube_params['L'])
+            
+            # Tube-side calculation
+            h_i, *_ = calculate_h(tube_params['mass_flow'],
+                                 tube_params['viscosity'],
+                                 tube_params['di'],
+                                 tube_params['density'],
+                                 tube_params['k'],
+                                 tube_params['cp'])
+            
+            # 5. Calculate actual U
+            U_cal = calculate_U(h_o, h_i, 
+                               tube_params['do'], tube_params['di'],
+                               tube_params['k_w'],
+                               h_od=shell_params.get('h_od', 5000),
+                               h_id=tube_params.get('h_id', 5000))
+            
+            # 6. Check convergence
+            error = abs((U_cal - U_ass)/U_ass * 100)
+            if error <= tol:
+                print(f"Converged in {iteration+1} iterations")
+                return U_cal, A, N_tubes, shell_dia
+            
+            # Update U estimate
+            U_ass = U_cal  # Simple relaxation
+            
+        except Exception as e:
+            print(f"Iteration {iteration+1} failed: {str(e)}")
+            break
+    
+    print("Warning: Max iterations reached without convergence")
+    return U_ass, A, N_tubes, shell_dia
+
+# --------------------
+# Example Usage
+# --------------------
+# Input parameters
+input_params = {
+    # Process parameters
+    'Thot_in': 425.4, 'Thot_out': 286.2,   # °C
+    'Tcold_in': 50, 'Tcold_out': 250,  # °C
+    'Q': 15205555,  # W (heat duty)
+    
+    # Tube-side parameters (liquid)
+    'tube_params': {
+        'mass_flow': 1.049*10**5,  # kg/h
+        'viscosity': 0.9154,   # cP
+        'density': 727,        # kg/m³
+        'k': 0.1306,           # W/m·K
+        'cp': 1.763,           # kJ/kg·K
+        'do': 0.025,           # m
+        'di': 0.021,           # m
+        'L': 6.10,                # m (tube length)
+        'k_w': 36,            # W/m·K (tube material)
+        'h_id': 5000           # W/m²K (tube-side fouling)
+    },
+    
+    # Shell-side parameters (gas)
+    'shell_params': {
+        'mass_flow': 1.108*10**5,  # kg/hr,  # kg/h
+        'viscosity': 3.217*10**-2, # cP
+        'density': 1.257,      # kg/m³
+        'k': 0.1911,           # W/m·K
+        'cp': 3.742,           # kJ/kg·K
+        'h_od': 3000           # W/m²K (shell-side fouling)
+    },
+    
+    # Initial guess
+    'U_guess': 5000            # W/m²K
+}
+
+# Run design calculation
+final_U, area, tubes, shell_dia = heat_exchanger_design(**input_params)
+
+# Display results
+print("\nFinal Design Parameters:")
+print(f"Overall U: {final_U:.1f} W/m²K")
+print(f"Required Area: {area:.1f} m²")
+print(f"Number of Tubes: {tubes}")
+print(f"Estimated Shell Diameter: {shell_dia:.3f} m")
+
